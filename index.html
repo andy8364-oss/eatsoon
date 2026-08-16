@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>EatSoon — 먹기 전에 알려주는 냉장고</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥛</text></svg>">
+</head>
+<body>
+
+<!-- ─────────────────────────  GLOBAL NAV  ───────────────────────── -->
+<header class="global-nav">
+  <div class="global-nav__inner">
+    <a class="global-nav__brand" href="#/home">EatSoon</a>
+    <nav class="global-nav__links">
+      <span class="global-nav__tag">Lean MVP v2</span>
+      <button class="global-nav__link" id="navReset" type="button">데이터 초기화</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ─────────────────────────  SUB NAV  ───────────────────────── -->
+<div class="sub-nav">
+  <div class="sub-nav__inner">
+    <span class="sub-nav__title">잇순</span>
+    <nav class="sub-nav__tabs" id="tabs">
+      <a class="sub-nav__tab" href="#/home" data-route="home">냉장고</a>
+      <a class="sub-nav__tab" href="#/recipes" data-route="recipes">레시피</a>
+      <a class="sub-nav__tab" href="#/stats" data-route="stats">검증 지표</a>
+    </nav>
+    <a class="btn btn--primary sub-nav__cta" href="#/add">식재료 등록</a>
+  </div>
+</div>
+
+<!-- ─────────────────────────  PUSH BANNER  ───────────────────────── -->
+<div class="push" id="push" hidden>
+  <div class="push__inner">
+    <span class="push__icon" id="pushIcon">⚠️</span>
+    <div class="push__body">
+      <p class="push__title">EatSoon 알림</p>
+      <p class="push__text" id="pushText"></p>
+    </div>
+    <button class="btn btn--primary push__cta" id="pushOpen" type="button">확인하기</button>
+    <button class="icon-chip push__close" id="pushClose" type="button" aria-label="알림 닫기">✕</button>
+  </div>
+</div>
+
+<main id="app">
+
+  <!-- ═══════════════════════  HOME  ═══════════════════════ -->
+  <section class="screen" data-screen="home">
+
+    <!-- Hero tile (dark) -->
+    <section class="tile tile--dark">
+      <div class="tile__inner tile__inner--center">
+        <p class="eyebrow eyebrow--on-dark" id="heroEyebrow">오늘의 냉장고</p>
+        <h1 class="hero-display" id="heroTitle">임박한 식재료가 없어요</h1>
+        <p class="lead lead--on-dark" id="heroLead">식재료를 등록하면 소비기한 2일 전에 알려드릴게요.</p>
+        <div class="cta-row">
+          <a class="btn btn--primary" href="#/add">식재료 등록하기</a>
+          <button class="btn btn--secondary-pill btn--on-dark" id="btnSimPush" type="button">알림 테스트</button>
+        </div>
+        <div class="render" id="heroRender" aria-hidden="true">
+          <span class="render__emoji" id="heroEmoji">🧊</span>
+        </div>
+        <button class="link-on-dark" id="btnPermission" type="button" hidden>브라우저 푸시 알림 허용하기</button>
+      </div>
+    </section>
+
+    <!-- Urgent list (parchment) -->
+    <section class="tile tile--parchment" id="urgentTile" hidden>
+      <div class="tile__inner">
+        <h2 class="display-lg">소비 골든타임</h2>
+        <p class="lead">D-2 이내. 지금 쓰면 아직 늦지 않았어요.</p>
+        <div class="card-grid" id="urgentList"></div>
+      </div>
+    </section>
+
+    <!-- All items (white) -->
+    <section class="tile tile--light">
+      <div class="tile__inner">
+        <h2 class="display-lg">내 식재료</h2>
+        <p class="lead" id="allSubcopy">보관 중인 식재료를 한눈에.</p>
+        <div class="card-grid" id="allList"></div>
+
+        <div class="empty" id="emptyState" hidden>
+          <span class="empty__emoji">🛒</span>
+          <p class="tagline">아직 등록된 식재료가 없습니다.</p>
+          <p class="body body--muted">이름과 소비기한, 딱 두 가지만 입력하면 됩니다.</p>
+          <div class="cta-row cta-row--start">
+            <a class="btn btn--primary" href="#/add">첫 식재료 등록</a>
+            <button class="btn btn--secondary-pill" id="btnDemo" type="button">데모 데이터 넣기</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recommendation from remaining ingredients (parchment) -->
+    <section class="tile tile--parchment" id="homeRecoTile" hidden>
+      <div class="tile__inner">
+        <h2 class="display-md">남은 재료로 만들 수 있는 요리</h2>
+        <p class="body body--muted">임박한 재료를 가장 잘 쓰는 순서로 골랐어요. 누르면 조리법이 나옵니다.</p>
+        <div class="card-grid card-grid--recipes" id="homeRecoList"></div>
+        <div class="cta-row cta-row--start">
+          <a class="btn btn--secondary-pill" href="#/recipes">추천 더 보기</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Resolved (light) -->
+    <section class="tile tile--light" id="doneTile" hidden>
+      <div class="tile__inner">
+        <h2 class="display-md">처리 완료</h2>
+        <p class="body body--muted">먹었는지 버렸는지가 이 MVP의 유일한 성공 지표입니다.</p>
+        <div class="chip-row" id="doneList"></div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ═══════════════════════  ADD  ═══════════════════════ -->
+  <section class="screen" data-screen="add">
+    <section class="tile tile--light">
+      <div class="tile__inner tile__inner--narrow">
+        <p class="eyebrow">STEP 01. REGISTER</p>
+        <h1 class="display-lg">두 가지만 입력하세요</h1>
+        <p class="lead">식재료명과 소비기한. 그 외의 입력은 등록을 포기하게 만듭니다.</p>
+
+        <form class="form" id="addForm" novalidate>
+          <label class="field">
+            <span class="field__label">식재료명</span>
+            <input class="input" id="fName" type="text" placeholder="예: 우유" autocomplete="off" maxlength="20" required>
+          </label>
+          <div class="chip-row chip-row--tight" id="quickNames"></div>
+
+          <label class="field">
+            <span class="field__label">소비기한</span>
+            <input class="input" id="fDate" type="date" required>
+          </label>
+          <div class="chip-row chip-row--tight" id="quickDates">
+            <button class="chip" type="button" data-days="1">내일</button>
+            <button class="chip" type="button" data-days="3">3일 뒤</button>
+            <button class="chip" type="button" data-days="7">일주일 뒤</button>
+            <button class="chip" type="button" data-days="14">2주 뒤</button>
+          </div>
+
+          <p class="form__error" id="formError" hidden></p>
+
+          <div class="cta-row cta-row--start">
+            <button class="btn btn--primary btn--lg" type="submit">등록 완료</button>
+            <a class="btn btn--secondary-pill" href="#/home">취소</a>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="tile tile--parchment">
+      <div class="tile__inner tile__inner--narrow">
+        <h2 class="display-md">등록하면 이렇게 됩니다</h2>
+        <ol class="flow">
+          <li class="flow__step"><span class="flow__no">01</span><div><p class="body-strong">등록</p><p class="body body--muted">이름 + 소비기한</p></div></li>
+          <li class="flow__step"><span class="flow__no">02</span><div><p class="body-strong">D-2 알림</p><p class="body body--muted">망각을 깨우는 트리거</p></div></li>
+          <li class="flow__step"><span class="flow__no">03</span><div><p class="body-strong">레시피 추천</p><p class="body body--muted">10분 내 자취 요리</p></div></li>
+          <li class="flow__step"><span class="flow__no">04</span><div><p class="body-strong">먹음 / 버림</p><p class="body body--muted">소비 전환 KPI 기록</p></div></li>
+        </ol>
+      </div>
+    </section>
+  </section>
+
+  <!-- ═══════════════════════  RECIPES  ═══════════════════════ -->
+  <section class="screen" data-screen="recipes">
+    <section class="tile tile--dark">
+      <div class="tile__inner">
+        <p class="eyebrow eyebrow--on-dark">STEP 03. RECOMMEND</p>
+        <h1 class="display-lg display-lg--on-dark">지금 있는 재료로, 10분이면</h1>
+        <p class="lead lead--on-dark">알림만으로는 부족합니다. 무엇을 해먹을지 알려줘야 소비로 이어집니다.</p>
+      </div>
+    </section>
+
+    <!-- 남은 재료 기반 추천 -->
+    <section class="tile tile--parchment">
+      <div class="tile__inner">
+        <h2 class="display-lg">지금 냉장고로 만들 수 있는 요리</h2>
+        <p class="lead">남은 재료를 가장 많이 쓰는 순서. 임박한 재료가 들어가면 위로 올라옵니다.</p>
+        <div class="card-grid card-grid--recipes" id="recoList"></div>
+        <div class="empty" id="recoEmpty" hidden>
+          <span class="empty__emoji">🧊</span>
+          <p class="tagline">아직 추천할 재료가 없어요.</p>
+          <p class="body body--muted">식재료를 등록하면 그 재료로 만들 수 있는 요리를 골라드립니다.</p>
+          <div class="cta-row">
+            <a class="btn btn--primary" href="#/add">식재료 등록하기</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 전체 레시피 + 내 레시피 -->
+    <section class="tile tile--light">
+      <div class="tile__inner">
+        <div class="section-head">
+          <div>
+            <h2 class="display-md">전체 레시피</h2>
+            <p class="body body--muted" id="recipeCount"></p>
+          </div>
+          <button class="btn btn--primary" id="btnAddRecipe" type="button">+ 내 레시피 추가</button>
+        </div>
+
+        <div class="filter-row">
+          <span class="caption-strong">재료로 걸러보기</span>
+          <div class="chip-row chip-row--tight" id="recipeFilters"></div>
+        </div>
+
+        <div class="card-grid card-grid--recipes" id="recipeList"></div>
+        <p class="body body--muted" id="recipeEmpty" hidden>조건에 맞는 레시피가 없습니다. 다른 재료를 선택해 보세요.</p>
+      </div>
+    </section>
+  </section>
+
+  <!-- ═══════════════════════  STATS  ═══════════════════════ -->
+  <section class="screen" data-screen="stats">
+    <section class="tile tile--light">
+      <div class="tile__inner">
+        <p class="eyebrow">10. KPI FRAMEWORK</p>
+        <h1 class="display-lg">가설은 검증되었는가</h1>
+        <p class="lead">사용이 편했는지가 아니라, 실제로 먹었는지를 측정합니다.</p>
+      </div>
+    </section>
+
+    <section class="tile tile--dark">
+      <div class="tile__inner tile__inner--center">
+        <p class="eyebrow eyebrow--on-dark">PRIMARY KPI · 임박 식재료 소비율</p>
+        <p class="metric-hero" id="kpiMainValue">–</p>
+        <p class="lead lead--on-dark" id="kpiMainDesc">목표 ≥ 70% · [먹었어요] ÷ D-Day 도달 식재료</p>
+        <p class="verdict" id="kpiVerdict">데이터 수집 중</p>
+      </div>
+    </section>
+
+    <section class="tile tile--parchment">
+      <div class="tile__inner">
+        <h2 class="display-md">Secondary KPI</h2>
+        <div class="card-grid card-grid--kpi" id="kpiGrid"></div>
+      </div>
+    </section>
+
+    <section class="tile tile--light">
+      <div class="tile__inner">
+        <h2 class="display-md">Telemetry Log</h2>
+        <p class="body body--muted">사용자 테스트 시 수집되는 원시 이벤트입니다. 최근 30건.</p>
+        <ul class="log" id="eventLog"></ul>
+      </div>
+    </section>
+  </section>
+</main>
+
+<!-- ─────────────────────────  FOOTER  ───────────────────────── -->
+<footer class="footer">
+  <div class="footer__inner">
+    <p class="caption-strong">EatSoon · Lean MVP Verification Prototype</p>
+    <p class="fine-print">창의적 설계 NOUS · Discover → Define → Develop → Deliver</p>
+    <p class="fine-print">모든 데이터는 이 브라우저에만 저장됩니다. 서버 전송 없음.</p>
+  </div>
+</footer>
+
+<!-- ─────────────────────────  RECIPE SHEET  ───────────────────────── -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet__backdrop" id="sheetBackdrop"></div>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <button class="icon-chip sheet__close" id="sheetClose" type="button" aria-label="닫기">✕</button>
+    <div class="sheet__scroll" id="sheetBody"></div>
+  </div>
+</div>
+
+<!-- ─────────────────────────  TOAST  ───────────────────────── -->
+<div class="toast" id="toast" hidden><span id="toastText"></span></div>
+
+<script src="recipes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
