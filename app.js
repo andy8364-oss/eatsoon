@@ -81,7 +81,7 @@ function emojiLookup(text) {
   return hit ? hit[1] : null;
 }
 function emojiFor(name) {
-  return emojiLookup(name) || '🥗';
+  return emojiLookup(name) || '🍽️';
 }
 const activeItems = () => state.items.filter(i => i.status === 'active');
 const resolvedItems = () => state.items.filter(i => i.status !== 'active');
@@ -161,11 +161,11 @@ function recommendations(limit) {
 /* ============================================================
    ROUTER
    ============================================================ */
-const ROUTES = ['home', 'add', 'recipes', 'stats'];
+const ROUTES = ['overview', 'home', 'add', 'recipes', 'stats'];
 
 function currentRoute() {
   const hash = location.hash.replace('#/', '');
-  return ROUTES.includes(hash) ? hash : 'home';
+  return ROUTES.includes(hash) ? hash : 'overview';
 }
 
 function renderRoute() {
@@ -186,6 +186,7 @@ function renderRoute() {
     log('recipe_list_view', { source: 'tab' });
     renderRecipes();
   }
+  if (route === 'overview') renderOverview();
   if (route === 'home') renderHome();
   if (route === 'stats') renderStats();
 
@@ -229,38 +230,8 @@ function renderHome() {
     heroEmoji.textContent = '🧊';
   }
 
-  /* 남은 재료 기반 추천 (상위 3) — 아래 추천 타일과 홈 바로가기 카드에서 함께 씁니다 */
+  /* 남은 재료 기반 추천 (상위 3) */
   const reco = recommendations(3);
-
-  /* 홈 바로가기 3개 — 소비율 / 임박 식재료 / 레시피 추천을 한눈에, 누르면 각 탭으로 */
-  const kpiTile = document.getElementById('homeKpiTile');
-  kpiTile.hidden = state.items.length === 0;
-  if (!kpiTile.hidden) {
-    const consumeCard = kpiCard(computeKPI().consume);
-
-    const urgentCard = document.createElement('article');
-    urgentCard.className = 'kpi-card';
-    urgentCard.innerHTML = `
-      <p class="kpi-card__label">임박 식재료</p>
-      <p class="kpi-card__value">${urgent.length}개</p>
-      <p class="kpi-card__target">${urgent.length ? `${urgent[0].name} 외 · 지금 확인하세요` : '임박한 재료가 없어요'}</p>`;
-
-    const recoCard = document.createElement('article');
-    recoCard.className = 'kpi-card';
-    recoCard.innerHTML = `
-      <p class="kpi-card__label">해결 레시피 추천</p>
-      <p class="kpi-card__value">${reco.length}개</p>
-      <p class="kpi-card__target">${reco.length ? `${reco[0].recipe.title} 등 지금 만들 수 있어요` : '재료를 등록하면 추천해드려요'}</p>`;
-
-    makeCardClickable(consumeCard, () => { location.hash = '#/stats'; });
-    makeCardClickable(urgentCard, () => {
-      const t = document.getElementById('urgentTile');
-      if (t && !t.hidden) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-    makeCardClickable(recoCard, () => { location.hash = '#/recipes'; });
-
-    document.getElementById('homeKpiGrid').replaceChildren(consumeCard, urgentCard, recoCard);
-  }
 
   /* Urgent list */
   const urgentTile = document.getElementById('urgentTile');
@@ -294,6 +265,51 @@ function renderHome() {
   /* Notification permission button */
   const permBtn = document.getElementById('btnPermission');
   permBtn.hidden = !('Notification' in window) || Notification.permission !== 'default';
+}
+
+/* ============================================================
+   OVERVIEW (홈) — 임박 식재료 / 레시피 추천 / 소비율을 한눈에
+   임박 식재료·레시피 추천을 먼저 강조하고, 소비율은 가장 덜 중요한
+   지표라 맨 오른쪽에 배치합니다.
+   ============================================================ */
+function renderOverview() {
+  const urgent = urgentItems();
+  const reco = recommendations(3);
+
+  const grid = document.getElementById('overviewGrid');
+  const empty = document.getElementById('overviewEmpty');
+  const hasItems = state.items.length > 0;
+  grid.hidden = !hasItems;
+  empty.hidden = hasItems;
+  if (!hasItems) return;
+
+  const urgentCard = document.createElement('article');
+  urgentCard.className = 'kpi-card kpi-card--accent';
+  urgentCard.innerHTML = `
+    <p class="kpi-card__label">임박 식재료</p>
+    <p class="kpi-card__value">⏰ ${urgent.length}개</p>
+    <p class="kpi-card__target">${urgent.length ? `${urgent[0].name} 외 · 지금 확인하세요` : '임박한 재료가 없어요'}</p>`;
+
+  const recoCard = document.createElement('article');
+  recoCard.className = 'kpi-card kpi-card--accent';
+  recoCard.innerHTML = `
+    <p class="kpi-card__label">해결 레시피 추천</p>
+    <p class="kpi-card__value">🍳 ${reco.length}개</p>
+    <p class="kpi-card__target">${reco.length ? `${reco[0].recipe.title} 등 지금 만들 수 있어요` : '재료를 등록하면 추천해드려요'}</p>`;
+
+  const consumeCard = kpiCard(computeKPI().consume);
+
+  makeCardClickable(urgentCard, () => {
+    location.hash = '#/home';
+    setTimeout(() => {
+      const t = document.getElementById('urgentTile');
+      if (t && !t.hidden) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  });
+  makeCardClickable(recoCard, () => { location.hash = '#/recipes'; });
+  makeCardClickable(consumeCard, () => { location.hash = '#/stats'; });
+
+  grid.replaceChildren(urgentCard, recoCard, consumeCard);
 }
 
 /** 카드를 클릭/엔터로 활성화되는 링크처럼 만듭니다 (홈 바로가기 카드용) */
@@ -696,7 +712,7 @@ document.addEventListener('keydown', e => {
    ============================================================ */
 const AI_RECIPE_ENDPOINT = '/api/generate-recipe';
 
-async function askAIForRecipe(name) {
+async function askAIForRecipe(name, itemId) {
   const res = await fetch(AI_RECIPE_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -720,8 +736,16 @@ async function askAIForRecipe(name) {
     createdAt: Date.now()
   };
   state.customRecipes.push(saved);
+
+  /* 기본 이모지 매칭에 없던 재료였을 가능성이 높으니, AI가 고른 이모지로 갱신 */
+  if (itemId) {
+    const item = itemById(itemId);
+    if (item) item.emoji = saved.emoji;
+  }
+
   log('ai_recipe_generated', { name, title: saved.title });
   save();
+  if (itemId && currentRoute() === 'home') renderHome();
   return saved;
 }
 
@@ -735,7 +759,7 @@ function askAIButton(name, itemId) {
     btn.disabled = true;
     btn.textContent = '레시피 만드는 중...';
     try {
-      const recipe = await askAIForRecipe(name);
+      const recipe = await askAIForRecipe(name, itemId);
       toast(`AI가 "${recipe.title}" 레시피를 만들었어요.`);
       openRecipeSheet(recipe.id, itemId);
     } catch (e) {
@@ -1167,6 +1191,6 @@ function toast(text) {
 /* ============================================================
    BOOT
    ============================================================ */
-if (!location.hash) location.hash = '#/home';
+if (!location.hash) location.hash = '#/overview';
 renderRoute();
 checkNotifications();

@@ -26,6 +26,7 @@
   <div class="sub-nav__inner">
     <span class="sub-nav__title">잇순</span>
     <nav class="sub-nav__tabs" id="tabs">
+      <a class="sub-nav__tab" href="#/overview" data-route="overview">홈</a>
       <a class="sub-nav__tab" href="#/home" data-route="home">냉장고</a>
       <a class="sub-nav__tab" href="#/recipes" data-route="recipes">레시피</a>
       <a class="sub-nav__tab" href="#/stats" data-route="stats">검증 지표</a>
@@ -49,6 +50,31 @@
 
 <main id="app">
 
+  <!-- ═══════════════════════  OVERVIEW (홈)  ═══════════════════════ -->
+  <section class="screen" data-screen="overview">
+    <section class="tile tile--dark">
+      <div class="tile__inner">
+        <p class="eyebrow eyebrow--on-dark">한눈에 보기</p>
+        <h1 class="display-lg display-lg--on-dark">오늘 뭐부터 볼까요?</h1>
+        <p class="lead lead--on-dark">눌러서 각 탭으로 바로 이동할 수 있어요.</p>
+      </div>
+    </section>
+
+    <section class="tile tile--light">
+      <div class="tile__inner">
+        <div class="card-grid card-grid--kpi" id="overviewGrid" hidden></div>
+        <div class="empty" id="overviewEmpty">
+          <span class="empty__emoji">🧊</span>
+          <p class="tagline">아직 등록된 식재료가 없어요.</p>
+          <p class="body body--muted">식재료를 등록하면 여기서 한눈에 확인할 수 있어요.</p>
+          <div class="cta-row">
+            <a class="btn btn--primary" href="#/add">첫 식재료 등록</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </section>
+
   <!-- ═══════════════════════  HOME  ═══════════════════════ -->
   <section class="screen" data-screen="home">
 
@@ -66,19 +92,6 @@
           <span class="render__emoji" id="heroEmoji">🧊</span>
         </div>
         <button class="link-on-dark" id="btnPermission" type="button" hidden>브라우저 푸시 알림 허용하기</button>
-      </div>
-    </section>
-
-    <!-- KPI shortcut (light) -->
-    <section class="tile tile--light" id="homeKpiTile" hidden>
-      <div class="tile__inner">
-        <div class="section-head">
-          <div>
-            <h2 class="display-md">한눈에 보기</h2>
-            <p class="body body--muted">눌러서 각 탭으로 바로 이동할 수 있어요.</p>
-          </div>
-        </div>
-        <div class="card-grid card-grid--kpi" id="homeKpiGrid"></div>
       </div>
     </section>
 
