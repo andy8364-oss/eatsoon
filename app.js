@@ -460,9 +460,17 @@ let recipeFilter = null;
 function renderRecipes() {
   const names = [...new Set(activeItems().map(i => i.name))];
 
-  /* 사라진 대상(삭제된 내 레시피 / 처리된 식재료)을 가리키는 필터는 해제 */
+  /* 전체 레시피 DB 기준 재료 태그 — 내 냉장고에 없는 것도 둘러볼 수 있게 전부 노출.
+     보유 중인 재료를 앞쪽에, 나머지는 가나다순으로 정렬합니다. */
+  const allTags = [...new Set(allRecipes().flatMap(r => r.tags))].sort((a, b) => {
+    const aOwned = names.includes(a) ? 0 : 1;
+    const bOwned = names.includes(b) ? 0 : 1;
+    return aOwned !== bOwned ? aOwned - bOwned : a.localeCompare(b, 'ko');
+  });
+
+  /* 사라진 대상(삭제된 내 레시피 / DB에 없는 태그)을 가리키는 필터는 해제 */
   if (recipeFilter === '@mine' && !state.customRecipes.length) recipeFilter = null;
-  else if (recipeFilter && recipeFilter !== '@mine' && !names.includes(recipeFilter)) recipeFilter = null;
+  else if (recipeFilter && recipeFilter !== '@mine' && !allTags.includes(recipeFilter)) recipeFilter = null;
 
   /* ① 남은 재료 기반 추천 */
   const reco = recommendations(6);
@@ -473,26 +481,26 @@ function renderRecipes() {
   const chips = [];
   const allChip = document.createElement('button');
   allChip.type = 'button';
-  allChip.className = 'chip';
+  allChip.className = 'chip chip--sm';
   allChip.textContent = '전체';
   allChip.setAttribute('aria-pressed', String(recipeFilter === null));
   allChip.addEventListener('click', () => { recipeFilter = null; renderRecipes(); });
   chips.push(allChip);
 
-  names.forEach(name => {
+  allTags.forEach(tag => {
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = 'chip';
-    chip.textContent = `${emojiFor(name)} ${name}`;
-    chip.setAttribute('aria-pressed', String(recipeFilter === name));
-    chip.addEventListener('click', () => { recipeFilter = recipeFilter === name ? null : name; renderRecipes(); });
+    chip.className = 'chip chip--sm';
+    chip.textContent = names.includes(tag) ? `✅ ${tag}` : tag;
+    chip.setAttribute('aria-pressed', String(recipeFilter === tag));
+    chip.addEventListener('click', () => { recipeFilter = recipeFilter === tag ? null : tag; renderRecipes(); });
     chips.push(chip);
   });
 
   if (state.customRecipes.length) {
     const mine = document.createElement('button');
     mine.type = 'button';
-    mine.className = 'chip';
+    mine.className = 'chip chip--sm';
     mine.textContent = `⭐ 내 레시피 ${state.customRecipes.length}`;
     mine.setAttribute('aria-pressed', String(recipeFilter === '@mine'));
     mine.addEventListener('click', () => { recipeFilter = recipeFilter === '@mine' ? null : '@mine'; renderRecipes(); });
@@ -535,10 +543,14 @@ function recipeCard(entry) {
   if (recipe.custom) badges.push('<span class="badge badge--mine">내 레시피</span>');
 
   card.innerHTML = `
-    <span class="recipe-card__thumb">${recipe.emoji}</span>
+    <div class="recipe-card__head">
+      <span class="recipe-card__thumb">${recipe.emoji}</span>
+      <div>
+        <p class="recipe-card__title"></p>
+        <p class="recipe-card__meta">약 ${recipe.minutes}분 · 재료 ${recipe.tags.length}가지</p>
+      </div>
+    </div>
     ${badges.length ? `<span class="badge-row">${badges.join('')}</span>` : ''}
-    <span class="recipe-card__title"></span>
-    <span class="recipe-card__meta">약 ${recipe.minutes}분 · 재료 ${recipe.tags.length}가지</span>
     <span class="recipe-card__match">${matched.length ? `보유 재료 ${matched.length}개 사용 (${matched.join(', ')})` : '보유 재료와 겹치지 않아요'}</span>
     ${missing.length ? `<span class="recipe-card__missing">추가 재료: ${missing.join(', ')}</span>` : ''}`;
   card.querySelector('.recipe-card__title').textContent = recipe.title;

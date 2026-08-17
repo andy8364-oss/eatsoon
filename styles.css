@@ -288,22 +288,23 @@ h1, h2, h3, p { margin: 0; }
 
 .recipe-card {
   background: var(--canvas); border: 1px solid var(--hairline);
-  border-radius: var(--r-lg); padding: var(--lg);
-  display: flex; flex-direction: column; gap: var(--sm);
+  border-radius: var(--r-lg); padding: var(--md) var(--lg);
+  display: flex; flex-direction: column; gap: 6px;
   text-align: left; cursor: pointer; width: 100%;
   transition: border-color 0.2s ease, transform 0.12s ease;
 }
 .recipe-card:hover { border-color: var(--ink-muted-48); }
 .recipe-card:active { transform: scale(0.95); }
+.recipe-card__head { display: flex; align-items: center; gap: var(--sm); }
 .recipe-card__thumb {
-  width: 100%; aspect-ratio: 1 / 1; border-radius: var(--r-sm);
-  background: var(--canvas-parchment); display: grid; place-items: center; font-size: 64px;
+  width: 44px; height: 44px; flex: none; border-radius: var(--r-sm);
+  background: var(--canvas-parchment); display: grid; place-items: center;
+  font-size: 22px; position: relative;
 }
-.recipe-card__title { font-size: 17px; font-weight: 600; letter-spacing: -0.374px; }
-.recipe-card__meta { font-size: 14px; letter-spacing: -0.224px; color: var(--ink-muted-48); }
-.recipe-card__match { font-size: 14px; letter-spacing: -0.224px; color: var(--primary); }
-.recipe-card__missing { font-size: 14px; letter-spacing: -0.224px; color: var(--ink-muted-48); }
-.recipe-card__thumb { position: relative; }
+.recipe-card__title { font-size: 16px; font-weight: 600; letter-spacing: -0.374px; }
+.recipe-card__meta { font-size: 13px; letter-spacing: -0.224px; color: var(--ink-muted-48); }
+.recipe-card__match { font-size: 13px; letter-spacing: -0.224px; color: var(--primary); }
+.recipe-card__missing { font-size: 13px; letter-spacing: -0.224px; color: var(--ink-muted-48); }
 
 /* 카드 상단 배지 — 임박 재료 사용 / 내 레시피 */
 .badge-row { display: flex; flex-wrap: wrap; gap: var(--xxs); }
@@ -374,6 +375,7 @@ h1, h2, h3, p { margin: 0; }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--body-on-dark); border-color: var(--ink); }
 .chip--static { cursor: default; }
 .chip--static:hover { border-color: var(--hairline); }
+.chip--sm { padding: 6px 12px; min-height: 32px; font-size: 13px; }
 
 .form { display: flex; flex-direction: column; }
 .field { display: block; margin-top: var(--lg); }
