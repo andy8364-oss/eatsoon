@@ -456,6 +456,7 @@ document.getElementById('addForm').addEventListener('submit', e => {
    RECIPES  (STEP 03. RECOMMEND)
    ============================================================ */
 let recipeFilter = null;
+let recipeShowAll = false;
 
 function renderRecipes() {
   const names = [...new Set(activeItems().map(i => i.name))];
@@ -508,23 +509,40 @@ function renderRecipes() {
   }
   document.getElementById('recipeFilters').replaceChildren(...chips);
 
-  /* ③ 전체 목록 */
+  /* ③ 전체 목록 — 보유 재료와 안 겹치는 레시피는 기본적으로 접어두고, "더 보기"로 펼칩니다 */
   let list;
+  let hiddenCount = 0;
   if (recipeFilter === '@mine') {
     list = state.customRecipes.map(r => ({ recipe: r, ...matchInfo(r, names), urgentUsed: [] }));
   } else if (recipeFilter) {
     list = scoreRecipes([recipeFilter]);
   } else {
     const scored = recommendations();
-    const rest = allRecipes().filter(r => !scored.some(s => s.recipe.id === r.id));
-    list = scored.concat(rest.map(r => ({ recipe: r, ...matchInfo(r, names), urgentUsed: [] })));
+    const rest = allRecipes()
+      .filter(r => !scored.some(s => s.recipe.id === r.id))
+      .map(r => ({ recipe: r, ...matchInfo(r, names), urgentUsed: [] }));
+    if (names.length === 0 || recipeShowAll) {
+      list = scored.concat(rest);
+    } else {
+      list = scored;
+      hiddenCount = rest.length;
+    }
   }
 
   document.getElementById('recipeList').replaceChildren(...list.map(recipeCard));
   document.getElementById('recipeEmpty').hidden = list.length > 0;
   document.getElementById('recipeCount').textContent =
     `기본 ${RECIPES.length}종 · 내 레시피 ${state.customRecipes.length}종`;
+
+  const showAllBtn = document.getElementById('recipeShowAllBtn');
+  showAllBtn.hidden = hiddenCount === 0;
+  showAllBtn.textContent = `보유 재료와 안 겹치는 레시피 ${hiddenCount}개 더 보기`;
 }
+
+document.getElementById('recipeShowAllBtn').addEventListener('click', () => {
+  recipeShowAll = true;
+  renderRecipes();
+});
 
 /** 추천/목록 카드. entry = { recipe, matched, missing, urgentUsed } */
 function recipeCard(entry) {
@@ -841,13 +859,18 @@ function openItemSheet(itemId) {
 }
 
 /** STEP 04. KPI 측정 버튼 */
-function consumeBlock(item) {
-  const wrap = document.createElement('div');
-  wrap.className = 'sheet__section';
-  wrap.innerHTML = '<h4>식재료를 어떻게 처리하셨나요?</h4>';
-
+/** 재료명(withLabel=true면 이름도 같이) + 먹었어요/버렸어요 버튼 한 줄 */
+function consumeRow(item, withLabel) {
   const row = document.createElement('div');
   row.className = 'cta-row cta-row--start';
+
+  if (withLabel) {
+    const label = document.createElement('span');
+    label.className = 'body-strong';
+    label.style.marginRight = 'auto';
+    label.textContent = `${item.emoji} ${item.name}`;
+    row.appendChild(label);
+  }
 
   const eat = document.createElement('button');
   eat.type = 'button';
@@ -862,7 +885,23 @@ function consumeBlock(item) {
   drop.addEventListener('click', () => resolveItem(item.id, 'discarded'));
 
   row.append(eat, drop);
-  wrap.appendChild(row);
+  return row;
+}
+
+function consumeBlock(item) {
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet__section';
+  wrap.innerHTML = '<h4>식재료를 어떻게 처리하셨나요?</h4>';
+  wrap.appendChild(consumeRow(item, false));
+  return wrap;
+}
+
+/** 특정 재료 하나가 아니라, 이 레시피에 쓰인 보유 재료 여러 개를 한 번에 처리 */
+function consumeBlockMulti(items) {
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet__section';
+  wrap.innerHTML = '<h4>이 레시피에 쓴 재료, 어떻게 하셨나요?</h4>';
+  items.forEach(item => wrap.appendChild(consumeRow(item, true)));
   return wrap;
 }
 
@@ -954,7 +993,13 @@ function openRecipeSheet(recipeId, itemId) {
   }
 
   const item = itemId ? itemById(itemId) : null;
-  if (item && item.status === 'active') sheetBody.appendChild(consumeBlock(item));
+  if (item && item.status === 'active') {
+    sheetBody.appendChild(consumeBlock(item));
+  } else if (!itemId && matched.length) {
+    /* 특정 재료를 짚어서 들어온 게 아니어도, 이 레시피가 쓰는 보유 재료가 있으면 바로 처리할 수 있게 */
+    const matchedItems = activeItems().filter(i => matched.some(tag => nameMatchesTag(i.name, tag)));
+    if (matchedItems.length) sheetBody.appendChild(consumeBlockMulti(matchedItems));
+  }
 
   openSheet();
 }
