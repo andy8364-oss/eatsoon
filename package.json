@@ -1,0 +1,5 @@
+{
+  "name": "eatsoon",
+  "private": true,
+  "engines": { "node": ">=18" }
+}

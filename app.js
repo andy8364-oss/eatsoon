@@ -229,19 +229,37 @@ function renderHome() {
     heroEmoji.textContent = '🧊';
   }
 
-  /* KPI shortcut — 임박 식재료 소비율을 홈에서 바로 보고, 누르면 검증 지표 탭으로 */
+  /* 남은 재료 기반 추천 (상위 3) — 아래 추천 타일과 홈 바로가기 카드에서 함께 씁니다 */
+  const reco = recommendations(3);
+
+  /* 홈 바로가기 3개 — 소비율 / 임박 식재료 / 레시피 추천을 한눈에, 누르면 각 탭으로 */
   const kpiTile = document.getElementById('homeKpiTile');
   kpiTile.hidden = state.items.length === 0;
   if (!kpiTile.hidden) {
-    const card = kpiCard(computeKPI().consume);
-    card.classList.add('kpi-card--link');
-    card.setAttribute('role', 'button');
-    card.setAttribute('tabindex', '0');
-    card.addEventListener('click', () => { location.hash = '#/stats'; });
-    card.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.hash = '#/stats'; }
+    const consumeCard = kpiCard(computeKPI().consume);
+
+    const urgentCard = document.createElement('article');
+    urgentCard.className = 'kpi-card';
+    urgentCard.innerHTML = `
+      <p class="kpi-card__label">임박 식재료</p>
+      <p class="kpi-card__value">${urgent.length}개</p>
+      <p class="kpi-card__target">${urgent.length ? `${urgent[0].name} 외 · 지금 확인하세요` : '임박한 재료가 없어요'}</p>`;
+
+    const recoCard = document.createElement('article');
+    recoCard.className = 'kpi-card';
+    recoCard.innerHTML = `
+      <p class="kpi-card__label">해결 레시피 추천</p>
+      <p class="kpi-card__value">${reco.length}개</p>
+      <p class="kpi-card__target">${reco.length ? `${reco[0].recipe.title} 등 지금 만들 수 있어요` : '재료를 등록하면 추천해드려요'}</p>`;
+
+    makeCardClickable(consumeCard, () => { location.hash = '#/stats'; });
+    makeCardClickable(urgentCard, () => {
+      const t = document.getElementById('urgentTile');
+      if (t && !t.hidden) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-    document.getElementById('homeKpiGrid').replaceChildren(card);
+    makeCardClickable(recoCard, () => { location.hash = '#/recipes'; });
+
+    document.getElementById('homeKpiGrid').replaceChildren(consumeCard, urgentCard, recoCard);
   }
 
   /* Urgent list */
@@ -258,8 +276,7 @@ function renderHome() {
     ? `보관 중 ${active.length}개 · 임박 ${urgent.length}개`
     : '보관 중인 식재료를 한눈에.';
 
-  /* 남은 재료 기반 추천 (상위 3) */
-  const reco = recommendations(3);
+  /* 남은 재료 기반 추천 타일 */
   const recoTile = document.getElementById('homeRecoTile');
   recoTile.hidden = reco.length === 0;
   document.getElementById('homeRecoList').replaceChildren(...reco.map(recipeCard));
@@ -277,6 +294,17 @@ function renderHome() {
   /* Notification permission button */
   const permBtn = document.getElementById('btnPermission');
   permBtn.hidden = !('Notification' in window) || Notification.permission !== 'default';
+}
+
+/** 카드를 클릭/엔터로 활성화되는 링크처럼 만듭니다 (홈 바로가기 카드용) */
+function makeCardClickable(el, onActivate) {
+  el.classList.add('kpi-card--link');
+  el.setAttribute('role', 'button');
+  el.setAttribute('tabindex', '0');
+  el.addEventListener('click', onActivate);
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate(); }
+  });
 }
 
 function itemCard(item) {
@@ -663,6 +691,62 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !sheet.hidden) closeSheet();
 });
 
+/* ============================================================
+   AI 레시피 — DB에 없는 재료를 위한 LLM 생성 (서버리스 함수 경유)
+   ============================================================ */
+const AI_RECIPE_ENDPOINT = '/api/generate-recipe';
+
+async function askAIForRecipe(name) {
+  const res = await fetch(AI_RECIPE_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ingredientName: name })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'AI 레시피 생성에 실패했습니다.');
+  }
+  const { recipe } = await res.json();
+  const saved = {
+    id: `ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    title: recipe.title,
+    emoji: recipe.emoji || emojiLookup(recipe.title) || '🍽️',
+    minutes: recipe.minutes || 10,
+    tags: recipe.tags,
+    ingredients: recipe.ingredients,
+    steps: recipe.steps,
+    custom: true,
+    aiGenerated: true,
+    createdAt: Date.now()
+  };
+  state.customRecipes.push(saved);
+  log('ai_recipe_generated', { name, title: saved.title });
+  save();
+  return saved;
+}
+
+/** "AI에게 레시피 물어보기" 버튼 — 클릭 시 생성하고 바로 상세로 이동 */
+function askAIButton(name, itemId) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn--primary';
+  btn.textContent = '🤖 AI에게 레시피 물어보기';
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = '레시피 만드는 중...';
+    try {
+      const recipe = await askAIForRecipe(name);
+      toast(`AI가 "${recipe.title}" 레시피를 만들었어요.`);
+      openRecipeSheet(recipe.id, itemId);
+    } catch (e) {
+      toast(e.message || 'AI 레시피 생성에 실패했습니다.');
+      btn.disabled = false;
+      btn.textContent = '🤖 AI에게 레시피 물어보기';
+    }
+  });
+  return btn;
+}
+
 /** 특정 식재료의 추천 레시피 + 소비 판단 버튼 */
 function openItemSheet(itemId) {
   const item = itemById(itemId);
@@ -711,8 +795,9 @@ function openItemSheet(itemId) {
   } else {
     const p = document.createElement('p');
     p.className = 'body body--muted';
-    p.textContent = '이 재료에 맞는 레시피가 아직 없어요. 레시피 탭에서 직접 추가할 수 있습니다.';
+    p.textContent = '이 재료에 맞는 레시피가 아직 없어요. AI에게 바로 물어보거나, 레시피 탭에서 직접 추가할 수 있습니다.';
     section.appendChild(p);
+    section.appendChild(askAIButton(item.name, itemId));
   }
   sheetBody.appendChild(section);
   sheetBody.appendChild(consumeBlock(item));
@@ -777,30 +862,7 @@ function openRecipeSheet(recipeId, itemId) {
   hero.querySelector('#sheetTitle').textContent = recipe.title;
   sheetBody.appendChild(hero);
 
-  /* 보유/부족 요약 */
-  if (names.length) {
-    const summary = document.createElement('div');
-    summary.className = 'sheet__section';
-    summary.innerHTML = '<h4>내 냉장고와 비교</h4>';
-    const row = document.createElement('div');
-    row.className = 'chip-row';
-    matched.forEach(tag => {
-      const chip = document.createElement('span');
-      chip.className = 'chip chip--static';
-      chip.textContent = `✅ ${tag}`;
-      row.appendChild(chip);
-    });
-    missing.forEach(tag => {
-      const chip = document.createElement('span');
-      chip.className = 'chip chip--static';
-      chip.style.opacity = '0.55';
-      chip.textContent = `· ${tag} (추가 필요)`;
-      row.appendChild(chip);
-    });
-    summary.appendChild(row);
-    sheetBody.appendChild(summary);
-  }
-
+  /* 재료 — 분량과 보유/추가필요 상태를 한 목록에 함께 표시 */
   const ing = document.createElement('div');
   ing.className = 'sheet__section';
   ing.innerHTML = '<h4>재료</h4>';
@@ -809,7 +871,14 @@ function openRecipeSheet(recipeId, itemId) {
   recipe.ingredients.forEach(text => {
     const chip = document.createElement('span');
     chip.className = 'chip chip--static';
-    chip.textContent = text;
+    if (names.length && matched.some(tag => text.includes(tag))) {
+      chip.textContent = `✅ ${text}`;
+    } else if (names.length && missing.some(tag => text.includes(tag))) {
+      chip.style.opacity = '0.55';
+      chip.textContent = `${text} (추가 필요)`;
+    } else {
+      chip.textContent = text;
+    }
     chipRow.appendChild(chip);
   });
   ing.appendChild(chipRow);
@@ -989,7 +1058,8 @@ const EVENT_LABEL = {
   consume_discarded: '버렸어요',
   custom_recipe_add: '내 레시피 추가',
   custom_recipe_edit: '내 레시피 수정',
-  custom_recipe_delete: '내 레시피 삭제'
+  custom_recipe_delete: '내 레시피 삭제',
+  ai_recipe_generated: 'AI 레시피 생성'
 };
 
 function renderStats() {
