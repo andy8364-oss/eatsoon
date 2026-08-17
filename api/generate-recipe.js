@@ -105,7 +105,7 @@ async function generateRecipeWithLLM(name) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 700,
+        maxOutputTokens: 2048,
         responseMimeType: 'application/json'
       }
     })
@@ -118,7 +118,10 @@ async function generateRecipeWithLLM(name) {
   const data = await r.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('LLM 응답에서 JSON을 찾지 못했습니다.');
+  if (!jsonMatch) {
+    const finishReason = data.candidates?.[0]?.finishReason || 'unknown';
+    throw new Error(`LLM 응답에서 JSON을 찾지 못했습니다. finishReason=${finishReason}, raw=${JSON.stringify(data).slice(0, 300)}`);
+  }
 
   const parsed = JSON.parse(jsonMatch[0]);
   if (!parsed.title || !Array.isArray(parsed.tags) || !Array.isArray(parsed.ingredients) || !Array.isArray(parsed.steps)) {
