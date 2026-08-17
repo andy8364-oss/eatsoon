@@ -229,6 +229,21 @@ function renderHome() {
     heroEmoji.textContent = '🧊';
   }
 
+  /* KPI shortcut — 임박 식재료 소비율을 홈에서 바로 보고, 누르면 검증 지표 탭으로 */
+  const kpiTile = document.getElementById('homeKpiTile');
+  kpiTile.hidden = state.items.length === 0;
+  if (!kpiTile.hidden) {
+    const card = kpiCard(computeKPI().consume);
+    card.classList.add('kpi-card--link');
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.addEventListener('click', () => { location.hash = '#/stats'; });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.hash = '#/stats'; }
+    });
+    document.getElementById('homeKpiGrid').replaceChildren(card);
+  }
+
   /* Urgent list */
   const urgentTile = document.getElementById('urgentTile');
   urgentTile.hidden = urgent.length === 0;
@@ -481,7 +496,7 @@ function recipeCard(entry) {
     <span class="recipe-card__title"></span>
     <span class="recipe-card__meta">약 ${recipe.minutes}분 · 재료 ${recipe.tags.length}가지</span>
     <span class="recipe-card__match">${matched.length ? `보유 재료 ${matched.length}개 사용 (${matched.join(', ')})` : '보유 재료와 겹치지 않아요'}</span>
-    ${missing.length ? `<span class="recipe-card__missing">부족: ${missing.join(', ')}</span>` : ''}`;
+    ${missing.length ? `<span class="recipe-card__missing">추가 재료: ${missing.join(', ')}</span>` : ''}`;
   card.querySelector('.recipe-card__title').textContent = recipe.title;
   card.addEventListener('click', () => openRecipeSheet(recipe.id, null));
   return card;
@@ -686,7 +701,7 @@ function openItemSheet(itemId) {
         <span class="flow__no">${recipe.emoji}</span>
         <div>
           <p class="body-strong"></p>
-          <p class="body body--muted">약 ${recipe.minutes}분 · ${missing.length ? `부족: ${missing.join(', ')}` : '지금 재료로 바로 가능'}</p>
+          <p class="body body--muted">약 ${recipe.minutes}분 · ${missing.length ? `추가 재료: ${missing.join(', ')}` : '지금 재료로 바로 가능'}</p>
         </div>`;
       row.querySelector('.body-strong').textContent = recipe.title;
       row.addEventListener('click', () => openRecipeSheet(recipe.id, itemId));
@@ -779,7 +794,7 @@ function openRecipeSheet(recipeId, itemId) {
       const chip = document.createElement('span');
       chip.className = 'chip chip--static';
       chip.style.opacity = '0.55';
-      chip.textContent = `· ${tag} (없음)`;
+      chip.textContent = `· ${tag} (추가 필요)`;
       row.appendChild(chip);
     });
     summary.appendChild(row);

@@ -328,6 +328,8 @@ h1, h2, h3, p { margin: 0; }
   background: var(--canvas); border: 1px solid var(--hairline);
   border-radius: var(--r-lg); padding: var(--lg);
 }
+.kpi-card--link { cursor: pointer; text-align: left; width: 100%; transition: border-color 0.2s ease; }
+.kpi-card--link:hover, .kpi-card--link:focus-visible { border-color: var(--primary); }
 .kpi-card__label { font-size: 14px; font-weight: 600; letter-spacing: -0.224px; color: var(--ink-muted-80); }
 .kpi-card__value {
   font-family: var(--font-display); font-size: 40px; font-weight: 600;
