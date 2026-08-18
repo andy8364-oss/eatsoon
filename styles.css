@@ -276,7 +276,10 @@ h1, h2, h3, p { margin: 0; }
 }
 .item-card__name { font-size: 17px; font-weight: 600; letter-spacing: -0.374px; }
 .item-card__meta { font-size: 14px; letter-spacing: -0.224px; color: var(--ink-muted-48); margin-top: 2px; }
-.item-card__actions { display: flex; flex-wrap: wrap; gap: var(--xs); }
+.item-card__actions { display: flex; flex-direction: column; gap: var(--sm); }
+.item-card__recipe-btn { width: 100%; }
+.item-card__consume-row { display: flex; gap: var(--xs); }
+.item-card__consume-row .btn { flex: 1; }
 
 .dday {
   margin-left: auto; flex: none;
@@ -527,7 +530,6 @@ h1, h2, h3, p { margin: 0; }
 @media (max-width: 419px) {
   .hero-display { font-size: 28px; }
   .display-lg { font-size: 25px; }
-  .item-card__actions .btn { flex: 1 1 auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
