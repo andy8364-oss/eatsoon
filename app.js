@@ -357,19 +357,19 @@ function itemCard(item) {
 
   const eatBtn = document.createElement('button');
   eatBtn.type = 'button';
-  eatBtn.className = 'btn btn--dark btn--sm';
+  eatBtn.className = 'btn btn--primary btn--sm';
   eatBtn.textContent = '✅ 먹었어요';
   eatBtn.addEventListener('click', () => { resolveItem(item.id, 'eaten'); closeSheet(); });
 
   const dropBtn = document.createElement('button');
   dropBtn.type = 'button';
-  dropBtn.className = 'btn btn--pearl btn--sm';
+  dropBtn.className = 'btn btn--secondary-pill btn--sm';
   dropBtn.textContent = '❌ 버렸어요';
   dropBtn.addEventListener('click', () => { resolveItem(item.id, 'discarded'); closeSheet(); });
 
   const partialBtn = document.createElement('button');
   partialBtn.type = 'button';
-  partialBtn.className = 'btn btn--pearl btn--sm';
+  partialBtn.className = 'btn btn--secondary-pill btn--sm';
   partialBtn.textContent = '🍽️ 일부 먹었어요';
   partialBtn.addEventListener('click', () => logPartialConsume(item.id));
 
