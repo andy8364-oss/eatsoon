@@ -170,6 +170,8 @@ function currentRoute() {
 
 function renderRoute() {
   const route = currentRoute();
+  /* 시트를 열어둔 채로 탭을 이동하면 body scroll-lock이 풀리지 않고 남는 문제 방지 */
+  closeSheet();
   document.querySelectorAll('.screen').forEach(el => {
     el.classList.toggle('is-active', el.dataset.screen === route);
   });
@@ -563,6 +565,13 @@ document.getElementById('addForm').addEventListener('submit', e => {
     return;
   }
   err.hidden = true;
+
+  /* 이름+소비기한이 완전히 같은 항목이 이미 있으면 실수로 두 번 누른 건 아닌지 확인.
+     소비기한이 다르면 서로 다른 묶음(batch)일 수 있어 그대로 별도 카드로 등록합니다. */
+  const exactDup = activeItems().find(i => i.name === name && i.expiry === expiry);
+  if (exactDup && !confirm(`이미 "${name}"이(가) 같은 소비기한(${formatDate(expiry)})으로 등록되어 있어요.\n그래도 추가할까요?`)) {
+    return;
+  }
 
   state.items.push({
     id: `it_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
