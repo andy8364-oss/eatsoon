@@ -410,6 +410,31 @@ function logPartialConsume(id) {
    ============================================================ */
 const QUICK_NAMES = ['우유', '계란', '두부', '대파', '양파', '김치', '식빵', '요거트', '닭가슴살', '치즈'];
 
+/** 식재료명 → 기본 소비기한 일수. 매칭 안 되면 기존 기본값(3일)을 씁니다. */
+function suggestedExpiryDays(name) {
+  const hit = SHELF_LIFE_DAYS.find(([key]) => name.includes(key));
+  return hit ? hit[1] : 3;
+}
+
+/** 이름 입력을 바탕으로 소비기한을 자동 제안합니다 (사용자가 날짜를 직접 건드리기 전까지만). */
+function applyDateSuggestion(name) {
+  const hint = document.getElementById('dateHint');
+  if (dateTouchedByUser || !name) {
+    return;
+  }
+  const days = suggestedExpiryDays(name);
+  document.getElementById('fDate').value = toISO(new Date(Date.now() + days * DAY));
+  const hit = SHELF_LIFE_DAYS.find(([key]) => name.includes(key));
+  if (hit) {
+    hint.textContent = `"${name}" 기준으로 소비기한을 ${days}일 뒤로 자동 제안했어요. 실제 포장에 표시된 기한으로 꼭 확인해 주세요.`;
+    hint.hidden = false;
+  } else {
+    hint.hidden = true;
+  }
+}
+
+let dateTouchedByUser = false;
+
 function renderAdd() {
   const wrap = document.getElementById('quickNames');
   if (!wrap.childElementCount) {
@@ -421,20 +446,34 @@ function renderAdd() {
       chip.addEventListener('click', () => {
         document.getElementById('fName').value = name;
         document.getElementById('formError').hidden = true;
+        applyDateSuggestion(name);
       });
       return chip;
     }));
   }
   document.getElementById('addForm').reset();
   document.getElementById('formError').hidden = true;
+  document.getElementById('dateHint').hidden = true;
+  dateTouchedByUser = false;
   const dateInput = document.getElementById('fDate');
   dateInput.min = toISO(new Date(Date.now() - 30 * DAY));
   dateInput.value = toISO(new Date(Date.now() + 3 * DAY));
 }
 
+document.getElementById('fName').addEventListener('input', e => {
+  applyDateSuggestion(e.target.value.trim());
+});
+
+document.getElementById('fDate').addEventListener('input', () => {
+  dateTouchedByUser = true;
+  document.getElementById('dateHint').hidden = true;
+});
+
 document.getElementById('quickDates').addEventListener('click', e => {
   const btn = e.target.closest('[data-days]');
   if (!btn) return;
+  dateTouchedByUser = true;
+  document.getElementById('dateHint').hidden = true;
   document.getElementById('fDate').value = toISO(new Date(Date.now() + Number(btn.dataset.days) * DAY));
 });
 
