@@ -348,9 +348,12 @@ function itemCard(item) {
 
   const recipeBtn = document.createElement('button');
   recipeBtn.type = 'button';
-  recipeBtn.className = 'btn btn--primary';
+  recipeBtn.className = 'btn btn--primary item-card__recipe-btn';
   recipeBtn.textContent = '레시피 보기';
   recipeBtn.addEventListener('click', () => openItemSheet(item.id));
+
+  const consumeRowEl = document.createElement('div');
+  consumeRowEl.className = 'item-card__consume-row';
 
   const eatBtn = document.createElement('button');
   eatBtn.type = 'button';
@@ -370,7 +373,8 @@ function itemCard(item) {
   partialBtn.textContent = '🍽️ 일부 먹었어요';
   partialBtn.addEventListener('click', () => logPartialConsume(item.id));
 
-  actions.append(recipeBtn, eatBtn, dropBtn, partialBtn);
+  consumeRowEl.append(eatBtn, dropBtn, partialBtn);
+  actions.append(recipeBtn, consumeRowEl);
   card.append(head, actions);
   return card;
 }
