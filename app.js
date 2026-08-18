@@ -408,7 +408,19 @@ function logPartialConsume(id) {
 /* ============================================================
    ADD  (STEP 01. REGISTER)
    ============================================================ */
-const QUICK_NAMES = ['우유', '계란', '두부', '대파', '양파', '김치', '식빵', '요거트', '닭가슴살', '치즈'];
+const COMMON_NAMES = ['우유', '계란', '두부', '대파', '양파', '김치', '식빵', '요거트', '닭가슴살', '치즈'];
+
+/** 등록 화면 빠른 선택 칩 — 자주 쓰는 재료를 앞에 두고, 우리 DB(레시피 태그 + 소비기한 기준표)가
+    아는 나머지 재료는 가나다순으로 이어서 전부 보여줍니다. */
+function quickAddNames() {
+  const known = new Set([
+    ...COMMON_NAMES,
+    ...allRecipes().flatMap(r => r.tags),
+    ...SHELF_LIFE_DAYS.map(([name]) => name)
+  ]);
+  const rest = [...known].filter(n => !COMMON_NAMES.includes(n)).sort((a, b) => a.localeCompare(b, 'ko'));
+  return [...COMMON_NAMES, ...rest];
+}
 
 /** 식재료명 → 기본 소비기한 일수. 매칭 안 되면 기존 기본값(3일)을 씁니다. */
 function suggestedExpiryDays(name) {
@@ -438,10 +450,10 @@ let dateTouchedByUser = false;
 function renderAdd() {
   const wrap = document.getElementById('quickNames');
   if (!wrap.childElementCount) {
-    wrap.replaceChildren(...QUICK_NAMES.map(name => {
+    wrap.replaceChildren(...quickAddNames().map(name => {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'chip';
+      chip.className = 'chip chip--sm';
       chip.textContent = `${emojiFor(name)} ${name}`;
       chip.addEventListener('click', () => {
         document.getElementById('fName').value = name;
