@@ -358,13 +358,19 @@ function itemCard(item) {
   eatBtn.textContent = '✅ 먹었어요';
   eatBtn.addEventListener('click', () => resolveItem(item.id, 'eaten'));
 
+  const partialBtn = document.createElement('button');
+  partialBtn.type = 'button';
+  partialBtn.className = 'btn btn--pearl';
+  partialBtn.textContent = '🍽️ 일부 먹었어요';
+  partialBtn.addEventListener('click', () => logPartialConsume(item.id));
+
   const dropBtn = document.createElement('button');
   dropBtn.type = 'button';
   dropBtn.className = 'btn btn--pearl';
   dropBtn.textContent = '❌ 버렸어요';
   dropBtn.addEventListener('click', () => resolveItem(item.id, 'discarded'));
 
-  actions.append(recipeBtn, eatBtn, dropBtn);
+  actions.append(recipeBtn, eatBtn, partialBtn, dropBtn);
   card.append(head, actions);
   return card;
 }
@@ -383,6 +389,17 @@ function resolveItem(id, status) {
   showNextPush();
   renderHome();
   toast(status === 'eaten' ? `${item.name}, 잘 드셨어요! 🎉` : `${item.name}, 다음엔 더 빨리 알려드릴게요.`);
+}
+
+/** 일부만 소비 — 상태는 active로 유지(목록에 남김), 이벤트만 기록합니다.
+    주 KPI 공식(eaten÷reached)은 건드리지 않고, 클릭 수 자체를 별도 참고 지표로 둡니다. */
+function logPartialConsume(id) {
+  const item = itemById(id);
+  if (!item || item.status !== 'active') return;
+  log('consume_partial', { name: item.name, dday: dday(item) });
+  save();
+  if (currentRoute() === 'home') renderHome();
+  toast('남은 음식도 기한 내에 처리하도록 도울게요.');
 }
 
 /* ============================================================
@@ -878,13 +895,19 @@ function consumeRow(item, withLabel) {
   eat.textContent = '✅ 먹었어요';
   eat.addEventListener('click', () => resolveItem(item.id, 'eaten'));
 
+  const partial = document.createElement('button');
+  partial.type = 'button';
+  partial.className = 'btn btn--secondary-pill';
+  partial.textContent = '🍽️ 일부 먹었어요';
+  partial.addEventListener('click', () => logPartialConsume(item.id));
+
   const drop = document.createElement('button');
   drop.type = 'button';
   drop.className = 'btn btn--secondary-pill';
   drop.textContent = '❌ 버렸어요';
   drop.addEventListener('click', () => resolveItem(item.id, 'discarded'));
 
-  row.append(eat, drop);
+  row.append(eat, partial, drop);
   return row;
 }
 
@@ -1136,6 +1159,7 @@ const EVENT_LABEL = {
   recipe_list_view: '레시피 목록 조회',
   recipe_detail_open: '레시피 상세 열람',
   consume_eaten: '먹었어요',
+  consume_partial: '일부 먹었어요',
   consume_discarded: '버렸어요',
   custom_recipe_add: '내 레시피 추가',
   custom_recipe_edit: '내 레시피 수정',
