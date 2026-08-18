@@ -354,23 +354,23 @@ function itemCard(item) {
 
   const eatBtn = document.createElement('button');
   eatBtn.type = 'button';
-  eatBtn.className = 'btn btn--dark';
+  eatBtn.className = 'btn btn--dark btn--sm';
   eatBtn.textContent = '✅ 먹었어요';
-  eatBtn.addEventListener('click', () => resolveItem(item.id, 'eaten'));
-
-  const partialBtn = document.createElement('button');
-  partialBtn.type = 'button';
-  partialBtn.className = 'btn btn--pearl';
-  partialBtn.textContent = '🍽️ 일부 먹었어요';
-  partialBtn.addEventListener('click', () => logPartialConsume(item.id));
+  eatBtn.addEventListener('click', () => { resolveItem(item.id, 'eaten'); closeSheet(); });
 
   const dropBtn = document.createElement('button');
   dropBtn.type = 'button';
-  dropBtn.className = 'btn btn--pearl';
+  dropBtn.className = 'btn btn--pearl btn--sm';
   dropBtn.textContent = '❌ 버렸어요';
-  dropBtn.addEventListener('click', () => resolveItem(item.id, 'discarded'));
+  dropBtn.addEventListener('click', () => { resolveItem(item.id, 'discarded'); closeSheet(); });
 
-  actions.append(recipeBtn, eatBtn, partialBtn, dropBtn);
+  const partialBtn = document.createElement('button');
+  partialBtn.type = 'button';
+  partialBtn.className = 'btn btn--pearl btn--sm';
+  partialBtn.textContent = '🍽️ 일부 먹었어요';
+  partialBtn.addEventListener('click', () => logPartialConsume(item.id));
+
+  actions.append(recipeBtn, eatBtn, dropBtn, partialBtn);
   card.append(head, actions);
   return card;
 }
@@ -384,7 +384,6 @@ function resolveItem(id, status) {
   item.resolvedDday = dday(item);
   log(status === 'eaten' ? 'consume_eaten' : 'consume_discarded', { name: item.name, dday: item.resolvedDday });
   save();
-  closeSheet();
   pushQueue = pushQueue.filter(pid => pid !== id);
   showNextPush();
   renderHome();
@@ -433,6 +432,63 @@ document.getElementById('quickDates').addEventListener('click', e => {
   const btn = e.target.closest('[data-days]');
   if (!btn) return;
   document.getElementById('fDate').value = toISO(new Date(Date.now() + Number(btn.dataset.days) * DAY));
+});
+
+/** 사진 파일 → 리사이즈된 JPEG base64 (긴 변 1024px 이하로 줄여서 업로드/토큰 절약) */
+function resizeImageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('이미지를 열지 못했습니다.'));
+      img.onload = () => {
+        const maxSide = 1024;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('fPhoto').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  const status = document.getElementById('photoStatus');
+  if (!file) return;
+
+  status.hidden = false;
+  status.textContent = '사진에서 정보를 읽는 중...';
+  try {
+    const base64 = await resizeImageToBase64(file);
+    const res = await fetch('/api/scan-expiry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg' })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || '인식에 실패했습니다.');
+    }
+    const { result } = await res.json();
+
+    if (result.name) document.getElementById('fName').value = result.name;
+    if (result.expiry) document.getElementById('fDate').value = result.expiry;
+
+    status.textContent = (result.name || result.expiry)
+      ? '인식된 내용을 채웠어요. 확인하고 등록해 주세요.'
+      : '사진에서 정보를 찾지 못했어요. 직접 입력해 주세요.';
+    log('photo_scan_result', { found: Boolean(result.name || result.expiry) });
+  } catch (err) {
+    status.textContent = err.message || '인식에 실패했어요. 직접 입력해 주세요.';
+  } finally {
+    e.target.value = '';
+  }
 });
 
 document.getElementById('addForm').addEventListener('submit', e => {
@@ -875,9 +931,10 @@ function openItemSheet(itemId) {
   openSheet();
 }
 
-/** STEP 04. KPI 측정 버튼 */
-/** 재료명(withLabel=true면 이름도 같이) + 먹었어요/버렸어요 버튼 한 줄 */
-function consumeRow(item, withLabel) {
+/** STEP 04. KPI 측정 버튼
+    재료명(withLabel=true면 이름도 같이) + 먹었어요/버렸어요/일부 먹었어요 버튼 한 줄.
+    onDone(row)이 주어지면 각 버튼 클릭 후 호출됩니다 — 시트를 닫을지/이 줄만 지울지는 호출부가 결정합니다. */
+function consumeRow(item, withLabel, onDone) {
   const row = document.createElement('div');
   row.className = 'cta-row cta-row--start';
 
@@ -889,25 +946,31 @@ function consumeRow(item, withLabel) {
     row.appendChild(label);
   }
 
+  const act = status => {
+    if (status === 'partial') logPartialConsume(item.id);
+    else resolveItem(item.id, status);
+    if (onDone) onDone(row);
+  };
+
   const eat = document.createElement('button');
   eat.type = 'button';
-  eat.className = 'btn btn--primary';
+  eat.className = 'btn btn--primary btn--sm';
   eat.textContent = '✅ 먹었어요';
-  eat.addEventListener('click', () => resolveItem(item.id, 'eaten'));
-
-  const partial = document.createElement('button');
-  partial.type = 'button';
-  partial.className = 'btn btn--secondary-pill';
-  partial.textContent = '🍽️ 일부 먹었어요';
-  partial.addEventListener('click', () => logPartialConsume(item.id));
+  eat.addEventListener('click', () => act('eaten'));
 
   const drop = document.createElement('button');
   drop.type = 'button';
-  drop.className = 'btn btn--secondary-pill';
+  drop.className = 'btn btn--secondary-pill btn--sm';
   drop.textContent = '❌ 버렸어요';
-  drop.addEventListener('click', () => resolveItem(item.id, 'discarded'));
+  drop.addEventListener('click', () => act('discarded'));
 
-  row.append(eat, partial, drop);
+  const partial = document.createElement('button');
+  partial.type = 'button';
+  partial.className = 'btn btn--secondary-pill btn--sm';
+  partial.textContent = '🍽️ 일부 먹었어요';
+  partial.addEventListener('click', () => act('partial'));
+
+  row.append(eat, drop, partial);
   return row;
 }
 
@@ -915,16 +978,27 @@ function consumeBlock(item) {
   const wrap = document.createElement('div');
   wrap.className = 'sheet__section';
   wrap.innerHTML = '<h4>식재료를 어떻게 처리하셨나요?</h4>';
-  wrap.appendChild(consumeRow(item, false));
+  wrap.appendChild(consumeRow(item, false, () => closeSheet()));
   return wrap;
 }
 
-/** 특정 재료 하나가 아니라, 이 레시피에 쓰인 보유 재료 여러 개를 한 번에 처리 */
+/** 특정 재료 하나가 아니라, 이 레시피에 쓰인 보유 재료 여러 개를 한 번에 처리.
+    하나 처리하면 그 줄만 지우고 시트는 유지, 마지막 하나였다면 시트를 닫습니다. */
 function consumeBlockMulti(items) {
   const wrap = document.createElement('div');
   wrap.className = 'sheet__section';
   wrap.innerHTML = '<h4>이 레시피에 쓴 재료, 어떻게 하셨나요?</h4>';
-  items.forEach(item => wrap.appendChild(consumeRow(item, true)));
+
+  const list = document.createElement('div');
+  list.className = 'flow';
+  items.forEach(item => {
+    const row = consumeRow(item, true, rowEl => {
+      rowEl.remove();
+      if (!list.children.length) closeSheet();
+    });
+    list.appendChild(row);
+  });
+  wrap.appendChild(list);
   return wrap;
 }
 
@@ -1019,9 +1093,16 @@ function openRecipeSheet(recipeId, itemId) {
   if (item && item.status === 'active') {
     sheetBody.appendChild(consumeBlock(item));
   } else if (!itemId && matched.length) {
-    /* 특정 재료를 짚어서 들어온 게 아니어도, 이 레시피가 쓰는 보유 재료가 있으면 바로 처리할 수 있게 */
+    /* 특정 재료를 짚어서 들어온 게 아니어도, 이 레시피가 쓰는 보유 재료가 있으면 바로 처리할 수 있게.
+       같은 이름의 재료를 여러 개 등록했다면 소비기한이 가장 임박한 것 하나로만 대표시켜 중복 표시를 막습니다. */
     const matchedItems = activeItems().filter(i => matched.some(tag => nameMatchesTag(i.name, tag)));
-    if (matchedItems.length) sheetBody.appendChild(consumeBlockMulti(matchedItems));
+    const uniqueMatchedItems = Object.values(
+      matchedItems.reduce((byName, i) => {
+        if (!byName[i.name] || dday(i) < dday(byName[i.name])) byName[i.name] = i;
+        return byName;
+      }, {})
+    );
+    if (uniqueMatchedItems.length) sheetBody.appendChild(consumeBlockMulti(uniqueMatchedItems));
   }
 
   openSheet();
@@ -1164,7 +1245,8 @@ const EVENT_LABEL = {
   custom_recipe_add: '내 레시피 추가',
   custom_recipe_edit: '내 레시피 수정',
   custom_recipe_delete: '내 레시피 삭제',
-  ai_recipe_generated: 'AI 레시피 생성'
+  ai_recipe_generated: 'AI 레시피 생성',
+  photo_scan_result: '사진으로 등록 시도'
 };
 
 function renderStats() {

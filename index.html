@@ -153,6 +153,15 @@
         <h1 class="display-lg">두 가지만 입력하세요</h1>
         <p class="lead">식재료명과 소비기한. 그 외의 입력은 등록을 포기하게 만듭니다.</p>
 
+        <div class="field">
+          <span class="field__label">사진으로 채우기 (선택)</span>
+          <label class="btn btn--secondary-pill" for="fPhoto" style="display:inline-flex; width:fit-content; cursor:pointer;">
+            📷 포장지 사진으로 인식하기
+          </label>
+          <input type="file" id="fPhoto" accept="image/*" capture="environment" hidden>
+          <p class="field__hint" id="photoStatus"></p>
+        </div>
+
         <form class="form" id="addForm" novalidate>
           <label class="field">
             <span class="field__label">식재료명</span>
