@@ -438,6 +438,63 @@ document.getElementById('quickDates').addEventListener('click', e => {
   document.getElementById('fDate').value = toISO(new Date(Date.now() + Number(btn.dataset.days) * DAY));
 });
 
+/** 사진 파일 → 리사이즈된 JPEG base64 (긴 변 1024px 이하로 줄여서 업로드/토큰 절약) */
+function resizeImageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('이미지를 열지 못했습니다.'));
+      img.onload = () => {
+        const maxSide = 1024;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('fPhoto').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  const status = document.getElementById('photoStatus');
+  if (!file) return;
+
+  status.hidden = false;
+  status.textContent = '사진에서 정보를 읽는 중...';
+  try {
+    const base64 = await resizeImageToBase64(file);
+    const res = await fetch('/api/scan-expiry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg' })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || '인식에 실패했습니다.');
+    }
+    const { result } = await res.json();
+
+    if (result.name) document.getElementById('fName').value = result.name;
+    if (result.expiry) document.getElementById('fDate').value = result.expiry;
+
+    status.textContent = (result.name || result.expiry)
+      ? '인식된 내용을 채웠어요. 확인하고 등록해 주세요.'
+      : '사진에서 정보를 찾지 못했어요. 직접 입력해 주세요.';
+    log('photo_scan_result', { found: Boolean(result.name || result.expiry) });
+  } catch (err) {
+    status.textContent = err.message || '인식에 실패했어요. 직접 입력해 주세요.';
+  } finally {
+    e.target.value = '';
+  }
+});
+
 document.getElementById('addForm').addEventListener('submit', e => {
   e.preventDefault();
   const name = document.getElementById('fName').value.trim();
@@ -878,8 +935,9 @@ function openItemSheet(itemId) {
   openSheet();
 }
 
-/** STEP 04. KPI 측정 버튼 */
-/** 재료명(withLabel=true면 이름도 같이) + 먹었어요/버렸어요 버튼 한 줄 */
+/** STEP 04. KPI 측정 버튼
+    재료명(withLabel=true면 이름도 같이) + 먹었어요/버렸어요/일부 먹었어요 버튼 한 줄.
+    onDone(row)이 주어지면 각 버튼 클릭 후 호출됩니다 — 시트를 닫을지/이 줄만 지울지는 호출부가 결정합니다. */
 function consumeRow(item, withLabel, onDone) {
   const row = document.createElement('div');
   row.className = 'cta-row cta-row--start';
@@ -1191,7 +1249,8 @@ const EVENT_LABEL = {
   custom_recipe_add: '내 레시피 추가',
   custom_recipe_edit: '내 레시피 수정',
   custom_recipe_delete: '내 레시피 삭제',
-  ai_recipe_generated: 'AI 레시피 생성'
+  ai_recipe_generated: 'AI 레시피 생성',
+  photo_scan_result: '사진으로 등록 시도'
 };
 
 function renderStats() {
