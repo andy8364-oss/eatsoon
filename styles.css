@@ -199,6 +199,7 @@ h1, h2, h3, p { margin: 0; }
   border-radius: var(--r-md); padding: 8px 15px; min-height: 44px;
 }
 .btn--pearl:hover { border-color: var(--hairline); }
+.btn--sm { min-height: 36px; padding: 6px 12px; font-size: 13px; }
 
 .icon-chip {
   width: 44px; height: 44px; flex: none;
